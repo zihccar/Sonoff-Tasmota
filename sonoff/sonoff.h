@@ -20,6 +20,18 @@
 #ifndef _SONOFF_H_
 #define _SONOFF_H_
 
+/*********************************************************************************************\
+ * Performance ROM (PROGMEM) vs RAM (RODATA)
+\*********************************************************************************************/
+
+//#define XFUNC_PTR_IN_ROM                    // Enable for keeping tables in ROM (PROGMEM) which seem to have access issues on some flash types
+
+/*********************************************************************************************\
+ * Default sensor states
+\*********************************************************************************************/
+
+#define CODE_IMAGE 0
+
 #define USE_DHT                             // Default DHT11 sensor needs no external library
 #define USE_ENERGY_SENSOR                   // Use energy sensors (+14k code)
 #define USE_HLW8012                         // Use energy sensor for Sonoff Pow and WolfBlitz
@@ -50,6 +62,10 @@ typedef unsigned long power_t;              // Power (Relay) type
 #define MAX_DOMOTICZ_SNS_IDX   12           // Max number of Domoticz sensors indices
 #define MAX_KNX_GA             10           // Max number of KNX Group Addresses to read that can be set
 #define MAX_KNX_CB             10           // Max number of KNX Group Addresses to write that can be set
+#define MAX_XNRG_DRIVERS       32           // Max number of allowed energy drivers
+#define MAX_XDSP_DRIVERS       32           // Max number of allowed display drivers
+#define MAX_XDRV_DRIVERS       96           // Max number of allowed driver drivers
+#define MAX_XSNS_DRIVERS       96           // Max number of allowed sensor drivers
 #define MAX_RULE_MEMS          5            // Max number of saved vars
 #define MAX_RULE_SETS          3            // Max number of rule sets of size 512 characters
 #define MAX_RULE_SIZE          512          // Max number of characters in rules
@@ -60,6 +76,7 @@ typedef unsigned long power_t;              // Power (Relay) type
 
 #define MQTT_TOKEN_PREFIX      "%prefix%"   // To be substituted by mqtt_prefix[x]
 #define MQTT_TOKEN_TOPIC       "%topic%"    // To be substituted by mqtt_topic, mqtt_grptopic, mqtt_buttontopic, mqtt_switchtopic
+#define MQTT_TOKEN_HOSTNAME    "%hostname%" // To be substituted by mqtt_topic, mqtt_grptopic, mqtt_buttontopic, mqtt_switchtopic
 #define MQTT_TOKEN_ID          "%id%"       // To be substituted by mqtt_topic, mqtt_grptopic, mqtt_buttontopic, mqtt_switchtopic
 
 #define WIFI_HOSTNAME          "%s-%04d"    // Expands to <MQTT_TOPIC>-<last 4 decimal chars of MAC address>
@@ -172,6 +189,8 @@ typedef unsigned long power_t;              // Power (Relay) type
 #define KNX_MAX_device_param   30
 #define MAX_KNXTX_CMNDS        5
 
+#define DRIVER_BOOT_DELAY       1                // Number of milliseconds to retard driver cycles during boot-up time to reduce overall CPU load whilst Wifi is connecting
+
 /*********************************************************************************************\
  * Enumeration
 \*********************************************************************************************/
@@ -180,7 +199,7 @@ enum WeekInMonthOptions {Last, First, Second, Third, Fourth};
 enum DayOfTheWeekOptions {Sun=1, Mon, Tue, Wed, Thu, Fri, Sat};
 enum MonthNamesOptions {Jan=1, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec};
 enum HemisphereOptions {North, South};
-enum GetDateAndTimeOptions { DT_LOCAL, DT_UTC, DT_RESTART };
+enum GetDateAndTimeOptions { DT_LOCAL, DT_UTC, DT_RESTART, DT_ENERGY };
 
 enum LoggingLevels {LOG_LEVEL_NONE, LOG_LEVEL_ERROR, LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG_MORE, LOG_LEVEL_ALL};
 
@@ -202,19 +221,23 @@ enum ButtonStates { PRESSED, NOT_PRESSED };
 
 enum Shortcuts { SC_CLEAR, SC_DEFAULT, SC_USER };
 
-enum SettingsParmaIndex {P_HOLD_TIME, P_MAX_POWER_RETRY, P_MAX_PARAM8};
+enum SettingsParmaIndex {P_HOLD_TIME, P_MAX_POWER_RETRY, P_TUYA_DIMMER_ID, P_MDNS_DELAYED_START, P_MAX_PARAM8};  // Max is PARAM8_SIZE (18)
 
 enum DomoticzSensors {DZ_TEMP, DZ_TEMP_HUM, DZ_TEMP_HUM_BARO, DZ_POWER_ENERGY, DZ_ILLUMINANCE, DZ_COUNT, DZ_VOLTAGE, DZ_CURRENT, DZ_AIRQUALITY, DZ_MAX_SENSORS};
 
 enum Ws2812ClockIndex { WS_SECOND, WS_MINUTE, WS_HOUR, WS_MARKER };
 enum Ws2812Color { WS_RED, WS_GREEN, WS_BLUE };
-enum LightTypes {LT_BASIC, LT_PWM1, LT_PWM2, LT_PWM3, LT_PWM4, LT_PWM5, LT_PWM6, LT_PWM7, LT_NU8, LT_NU9, LT_NU10, LT_WS2812, LT_RGBW, LT_RGBWC};
+enum LightTypes {LT_BASIC, LT_PWM1, LT_PWM2, LT_PWM3, LT_PWM4, LT_PWM5, LT_PWM6, LT_PWM7, LT_SERIAL, LT_NU9, LT_NU10, LT_WS2812, LT_RGBW, LT_RGBWC};
 enum LichtSubtypes {LST_NONE, LST_SINGLE, LST_COLDWARM, LST_RGB, LST_RGBW, LST_RGBWC};
 enum LichtSchemes {LS_POWER, LS_WAKEUP, LS_CYCLEUP, LS_CYCLEDN, LS_RANDOM, LS_MAX};
 
-enum XsnsFunctions {FUNC_PRE_INIT, FUNC_INIT, FUNC_LOOP, FUNC_EVERY_50_MSECOND, FUNC_EVERY_100_MSECOND, FUNC_EVERY_200_MSECOND, FUNC_EVERY_250_MSECOND, FUNC_EVERY_SECOND, FUNC_PREP_BEFORE_TELEPERIOD,
-                    FUNC_JSON_APPEND, FUNC_WEB_APPEND, FUNC_SAVE_BEFORE_RESTART, FUNC_COMMAND, FUNC_MQTT_SUBSCRIBE, FUNC_MQTT_INIT, FUNC_MQTT_DATA, FUNC_SET_POWER, FUNC_SHOW_SENSOR,
-                    FUNC_RULES_PROCESS, FUNC_SERIAL, FUNC_FREE_MEM, FUNC_WEB_ADD_BUTTON, FUNC_WEB_ADD_MAIN_BUTTON, FUNC_WEB_ADD_HANDLER};
+enum XsnsFunctions {FUNC_SETTINGS_OVERRIDE, FUNC_MODULE_INIT, FUNC_PRE_INIT, FUNC_INIT,
+                    FUNC_LOOP, FUNC_EVERY_50_MSECOND, FUNC_EVERY_100_MSECOND, FUNC_EVERY_200_MSECOND, FUNC_EVERY_250_MSECOND, FUNC_EVERY_SECOND,
+                    FUNC_PREP_BEFORE_TELEPERIOD, FUNC_JSON_APPEND, FUNC_WEB_APPEND, FUNC_SAVE_BEFORE_RESTART, FUNC_COMMAND,
+                    FUNC_MQTT_SUBSCRIBE, FUNC_MQTT_INIT, FUNC_MQTT_DATA,
+                    FUNC_SET_POWER, FUNC_SET_DEVICE_POWER, FUNC_SHOW_SENSOR,
+                    FUNC_RULES_PROCESS, FUNC_SERIAL, FUNC_FREE_MEM, FUNC_BUTTON_PRESSED,
+                    FUNC_WEB_ADD_BUTTON, FUNC_WEB_ADD_MAIN_BUTTON, FUNC_WEB_ADD_HANDLER};
 
 const uint8_t kDefaultRfCode[9] PROGMEM = { 0x21, 0x16, 0x01, 0x0E, 0x03, 0x48, 0x2E, 0x1A, 0x00 };
 

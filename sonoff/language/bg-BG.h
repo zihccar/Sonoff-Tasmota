@@ -28,7 +28,7 @@
  * Use online command StateText to translate ON, OFF, HOLD and TOGGLE.
  * Use online command Prefix to translate cmnd, stat and tele.
  *
- * Updated until v6.2.1.8
+ * Updated until v6.2.1.20
 \*********************************************************************/
 
 //#define LANGUAGE_MODULE_NAME         // Enable to display "Module Generic" (ie Spanish), Disable to display "Generic Module" (ie English)
@@ -174,7 +174,7 @@
 #define D_UV_POWER "UV мощност"
 #define D_VERSION "Версия"
 #define D_VOLTAGE "Напрежение"
-#define D_WEIGHT "Weight"
+#define D_WEIGHT "Тегло"
 #define D_WARMLIGHT "Топла"
 #define D_WEB_SERVER "Уеб сървър"
 
@@ -457,10 +457,27 @@
 #define D_GZ_AXIS "Жироскоп - ос Z"
 
 // xsns_34_hx711.ino
-#define D_HX_CAL_REMOVE "Remove weigth"
-#define D_HX_CAL_REFERENCE "Load reference weigth"
-#define D_HX_CAL_DONE "Calibrated"
-#define D_HX_CAL_FAIL "Calibration failed"
+#define D_HX_CAL_REMOVE "Премахване на тегло"
+#define D_HX_CAL_REFERENCE "Зареждане на референтно тегло"
+#define D_HX_CAL_DONE "Калибриран"
+#define D_HX_CAL_FAIL "Неуспешно калибриране"
+#define D_RESET_HX711 "Нулиране на кантара"
+#define D_CONFIGURE_HX711 "Конфигуриране на кантара"
+#define D_HX711_PARAMETERS "Параметри на кантара"
+#define D_ITEM_WEIGHT "Тегло"
+#define D_REFERENCE_WEIGHT "Референтно тегло"
+#define D_CALIBRATE "Калибриране"
+#define D_CALIBRATION "Калибровка"
+
+//xsns_35_tx20.ino
+#define D_TX20_WIND_DIRECTION "Посока на вятъра"
+#define D_TX20_WIND_SPEED "Скорост на вятъра"
+#define D_TX20_WIND_SPEED_AVG "Средна скорост на вятъра"
+#define D_TX20_WIND_SPEED_MAX "Макс. скорост на вятъра"
+#define D_TX20_NORTH "С"
+#define D_TX20_EAST "И"
+#define D_TX20_SOUTH "Ю"
+#define D_TX20_WEST "З"
 
 // sonoff_template.h
 #define D_SENSOR_NONE     "Няма"
@@ -482,8 +499,10 @@
 #define D_SENSOR_IRRECV   "IRrecv"
 #define D_SENSOR_MHZ_RX   "MHZ Rx"
 #define D_SENSOR_MHZ_TX   "MHZ Tx"
-#define D_SENSOR_PZEM_RX  "PZEM Rx"
-#define D_SENSOR_PZEM_TX  "PZEM Tx"
+#define D_SENSOR_PZEM004_RX  "PZEM004 Rx"
+#define D_SENSOR_PZEM016_RX  "PZEM016 Rx"
+#define D_SENSOR_PZEM017_RX  "PZEM017 Rx"
+#define D_SENSOR_PZEM0XX_TX  "PZEM0XX Tx"
 #define D_SENSOR_SAIR_RX  "SAir Rx"
 #define D_SENSOR_SAIR_TX  "SAir Tx"
 #define D_SENSOR_SPI_CS   "SPI CS"
@@ -505,6 +524,11 @@
 #define D_SENSOR_TM1638_STB "TM16 STB"
 #define D_SENSOR_HX711_SCK "HX711 SCK"
 #define D_SENSOR_HX711_DAT "HX711 DAT"
+#define D_SENSOR_TX20_TX "TX20"
+#define D_SENSOR_RFSEND "RFSend"
+#define D_SENSOR_RFRECV "RFrecv"
+#define D_SENSOR_TUYA_TX "Tuya Tx"
+#define D_SENSOR_TUYA_RX "Tuya Rx"
 
 // Units
 #define D_UNIT_AMPERE "A"
@@ -513,6 +537,7 @@
 #define D_UNIT_HOUR "h"
 #define D_UNIT_KILOGRAM "kg"
 #define D_UNIT_INCREMENTS "inc"
+#define D_UNIT_KILOMETER_PER_HOUR "km/h"
 #define D_UNIT_KILOOHM "kΩ"
 #define D_UNIT_KILOWATTHOUR "kWh"
 #define D_UNIT_LUX "lx"
@@ -520,6 +545,7 @@
 #define D_UNIT_MICROMETER "µm"
 #define D_UNIT_MICROSECOND "µs"
 #define D_UNIT_MILLIAMPERE "mA"
+#define D_UNIT_MILLIMETER_MERCURY "mmHg"
 #define D_UNIT_MILLISECOND "ms"
 #define D_UNIT_MINUTE "min"
 #define D_UNIT_PARTS_PER_BILLION "ppb"

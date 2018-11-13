@@ -17,6 +17,8 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#define XDRV_02                2
+
 /*********************************************************************************************\
  * Select ONE of possible MQTT library types below
 \*********************************************************************************************/
@@ -197,6 +199,32 @@ void MqttLoop()
 
 /*********************************************************************************************/
 
+#ifdef USE_DISCOVERY
+#ifdef MQTT_HOST_DISCOVERY
+boolean MqttDiscoverServer()
+{
+  if (!mdns_begun) { return false; }
+
+  int n = MDNS.queryService("mqtt", "tcp");  // Search for mqtt service
+
+  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_MDNS D_QUERY_DONE " %d"), n);
+  AddLog(LOG_LEVEL_INFO);
+
+  if (n > 0) {
+    // Note: current strategy is to get the first MQTT service (even when many are found)
+    snprintf_P(Settings.mqtt_host, sizeof(Settings.mqtt_host), MDNS.IP(0).toString().c_str());
+    Settings.mqtt_port = MDNS.port(0);
+
+    snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_MDNS D_MQTT_SERVICE_FOUND " %s, " D_IP_ADDRESS " %s, " D_PORT " %d"),
+      MDNS.hostname(0).c_str(), Settings.mqtt_host, Settings.mqtt_port);
+    AddLog(LOG_LEVEL_INFO);
+  }
+
+  return n > 0;
+}
+#endif  // MQTT_HOST_DISCOVERY
+#endif  // USE_DISCOVERY
+
 int MqttLibraryType()
 {
   return (int)MQTT_LIBRARY_TYPE;
@@ -376,8 +404,8 @@ void MqttConnected()
   }
 
   if (mqtt_initial_connection_state) {
-    snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_CMND_MODULE "\":\"%s\",\"" D_JSON_VERSION "\":\"%s\",\"" D_JSON_FALLBACKTOPIC "\":\"%s\",\"" D_CMND_GROUPTOPIC "\":\"%s\"}"),
-      my_module.name, my_version, mqtt_client, Settings.mqtt_grptopic);
+    snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_CMND_MODULE "\":\"%s\",\"" D_JSON_VERSION "\":\"%s%s\",\"" D_JSON_FALLBACKTOPIC "\":\"%s\",\"" D_CMND_GROUPTOPIC "\":\"%s\"}"),
+      my_module.name, my_version, my_image, mqtt_client, Settings.mqtt_grptopic);
     MqttPublishPrefixTopic_P(TELE, PSTR(D_RSLT_INFO "1"));
 #ifdef USE_WEBSERVER
     if (Settings.webserver) {
@@ -398,8 +426,11 @@ void MqttConnected()
     XdrvCall(FUNC_MQTT_INIT);
   }
   mqtt_initial_connection_state = 0;
-  rules_flag.mqtt_connected = 1;
+
   global_state.mqtt_down = 0;
+  if (Settings.flag.mqtt_enabled) {
+    rules_flag.mqtt_connected = 1;
+  }
 }
 
 #ifdef USE_MQTT_TLS
@@ -465,9 +496,7 @@ void MqttReconnect()
 #ifndef USE_MQTT_TLS
 #ifdef USE_DISCOVERY
 #ifdef MQTT_HOST_DISCOVERY
-  if (!strlen(Settings.mqtt_host)) {
-    MdnsDiscoverMqttServer();
-  }
+  if (!strlen(Settings.mqtt_host) && !MqttDiscoverServer()) { return; }
 #endif  // MQTT_HOST_DISCOVERY
 #endif  // USE_DISCOVERY
 #endif  // USE_MQTT_TLS
@@ -536,6 +565,13 @@ void MqttCheck()
     if (!MqttIsConnected()) {
       global_state.mqtt_down = 1;
       if (!mqtt_retry_counter) {
+#ifndef USE_MQTT_TLS
+#ifdef USE_DISCOVERY
+#ifdef MQTT_HOST_DISCOVERY
+        if (!strlen(Settings.mqtt_host) && !mdns_begun) { return; }
+#endif  // MQTT_HOST_DISCOVERY
+#endif  // USE_DISCOVERY
+#endif  // USE_MQTT_TLS
         MqttReconnect();
       } else {
         mqtt_retry_counter--;
@@ -874,8 +910,6 @@ void MqttSaveSettings()
 /*********************************************************************************************\
  * Interface
 \*********************************************************************************************/
-
-#define XDRV_02
 
 boolean Xdrv02(byte function)
 {

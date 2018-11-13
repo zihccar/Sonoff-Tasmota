@@ -62,6 +62,7 @@
 #define D_JSON_FAILED "Failed"
 #define D_JSON_FALLBACKTOPIC "FallbackTopic"
 #define D_JSON_FEATURES "Features"
+#define D_JSON_FLASHCHIPID "FlashChipId"
 #define D_JSON_FLASHMODE "FlashMode"
 #define D_JSON_FLASHSIZE "FlashSize"
 #define D_JSON_FREEMEMORY "Free"
@@ -99,6 +100,7 @@
 #define D_JSON_REACTIVE_POWERUSAGE "ReactivePower"
 #define D_JSON_PRESSURE "Pressure"
 #define D_JSON_PRESSUREATSEALEVEL "SeaPressure"
+#define D_JSON_PRESSURE_UNIT "PressureUnit"
 #define D_JSON_PROGRAMFLASHSIZE "ProgramFlashSize"
 #define D_JSON_PROGRAMSIZE "ProgramSize"
 #define D_JSON_RESET "Reset"
@@ -127,6 +129,7 @@
 #define D_JSON_TIME "Time"
 #define D_JSON_TODAY "Today"
 #define D_JSON_TOTAL "Total"
+#define D_JSON_TOTAL_START_TIME "TotalStartTime"
 #define D_JSON_TVOC "TVOC"
 #define D_JSON_TYPE "Type"
 #define D_JSON_UPTIME "Uptime"
@@ -181,6 +184,7 @@
 #define D_CMND_DRIVER "Driver"
 #define D_CMND_SAVEDATA "SaveData"
 #define D_CMND_SETOPTION "SetOption"
+#define D_CMND_SETSENSOR "SetSensor"
 #define D_CMND_TEMPERATURE_RESOLUTION "TempRes"
 #define D_CMND_HUMIDITY_RESOLUTION "HumRes"
 #define D_CMND_PRESSURE_RESOLUTION "PressRes"
@@ -414,6 +418,7 @@ enum UnitNames {
   UNIT_LUX,
   UNIT_MICROSECOND,
   UNIT_MILLIAMPERE,
+  UNIT_MILLIMETER_MERCURY,
   UNIT_MILLISECOND,
   UNIT_MINUTE,
   UNIT_PPB,
@@ -435,6 +440,7 @@ const char kUnitNames[] PROGMEM =
   D_UNIT_LUX "|"
   D_UNIT_MICROSECOND "|"
   D_UNIT_MILLIAMPERE "|"
+  D_UNIT_MILLIMETER_MERCURY "|"
   D_UNIT_MILLISECOND "|"
   D_UNIT_MINUTE "|"
   D_UNIT_PARTS_PER_BILLION "|"
@@ -513,6 +519,8 @@ const char kPrefixes[3][PRFX_MAX_STRING_LENGTH] PROGMEM = {
   D_STAT,
   D_TELE };
 
+const char kCodeImage[] PROGMEM = "sonoff|minimal|classic|sensors|knx|basic|display";
+
 // support.ino
 static const char kMonthNames[] = D_MONTH3LIST;
 
@@ -526,8 +534,8 @@ const char kOptionBlinkOff[] PROGMEM = "BLINKOFF|" D_BLINKOFF ;
 #ifdef USE_WEBSERVER
 const char HTTP_SNS_TEMP[] PROGMEM = "%s{s}%s " D_TEMPERATURE "{m}%s&deg;%c{e}";                             // {s} = <tr><th>, {m} = </th><td>, {e} = </td></tr>
 const char HTTP_SNS_HUM[] PROGMEM = "%s{s}%s " D_HUMIDITY "{m}%s%%{e}";                                      // {s} = <tr><th>, {m} = </th><td>, {e} = </td></tr>
-const char HTTP_SNS_PRESSURE[] PROGMEM = "%s{s}%s " D_PRESSURE "{m}%s " D_UNIT_PRESSURE "{e}";               // {s} = <tr><th>, {m} = </th><td>, {e} = </td></tr>
-const char HTTP_SNS_SEAPRESSURE[] PROGMEM = "%s{s}%s " D_PRESSUREATSEALEVEL "{m}%s " D_UNIT_PRESSURE "{e}";  // {s} = <tr><th>, {m} = </th><td>, {e} = </td></tr>
+const char HTTP_SNS_PRESSURE[] PROGMEM = "%s{s}%s " D_PRESSURE "{m}%s %s{e}";                                // {s} = <tr><th>, {m} = </th><td>, {e} = </td></tr>
+const char HTTP_SNS_SEAPRESSURE[] PROGMEM = "%s{s}%s " D_PRESSUREATSEALEVEL "{m}%s %s{e}";                   // {s} = <tr><th>, {m} = </th><td>, {e} = </td></tr>
 const char HTTP_SNS_ANALOG[] PROGMEM = "%s{s}%s " D_ANALOG_INPUT "%d{m}%d{e}";                               // {s} = <tr><th>, {m} = </th><td>, {e} = </td></tr>
 
 #if defined(USE_MHZ19) || defined(USE_SENSEAIR)

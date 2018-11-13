@@ -48,15 +48,9 @@ byte          Settings.knx_CB_param[MAX_KNX_CB]     Type of Output (set relay, t
 
 \*********************************************************************************************/
 
-#include <esp-knx-ip.h>         // KNX Library
-                                //   Note: Inside the <esp-knx-ip.h> file there is a //#define USE_ASYNC_UDP    // UDP WIFI Library Selection for Multicast
-                                //         If commented out, the esp-knx-ip library will use WIFI_UDP Library that is compatible with ESP8266 Library Version 2.3.0 and up
-                                //         If not commented out, the esp-knx-ip library will use ESPAsyncUDP Library that is compatible with ESP8266 Library Version 2.4.0 and up
-                                //            The ESPAsyncUDP Library have a more reliable multicast communication
-                                //            Please Use it with Patch (https://github.com/me-no-dev/ESPAsyncUDP/pull/21) )
+#define XDRV_11  11
 
-//void KNX_CB_Action(message_t const &msg, void *arg);  // Define function (action callback) to be called by the Esp-KNX-IP Library
-                                                      // when an action is requested by another KNX Device
+#include <esp-knx-ip.h>         // KNX Library
 
 address_t KNX_physs_addr;  // Physical KNX address of this device
 address_t KNX_addr;        // KNX Address converter variable
@@ -1285,8 +1279,6 @@ boolean KnxCommand()
 /*********************************************************************************************\
  * Interface
 \*********************************************************************************************/
-
-#define XDRV_11
 
 boolean Xdrv11(byte function)
 {

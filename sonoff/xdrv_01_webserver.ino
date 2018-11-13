@@ -25,6 +25,8 @@
  * Based on source by AlexT (https://github.com/tzapu)
 \*********************************************************************************************/
 
+#define XDRV_01                1
+
 #define HTTP_REFRESH_TIME      2345   // milliseconds
 
 #ifdef USE_RF_FLASH
@@ -41,12 +43,13 @@ const char HTTP_HEAD[] PROGMEM =
   "<title>{h} - {v}</title>"
 
   "<script>"
-  "var cn,x,lt,to,tp,pc='';"
-  "cn=180;"
-  "x=null;"                  // Allow for abortion
+  "var x=null,lt,to,tp,pc='';"   // x=null allow for abortion
   "function eb(s){"
     "return document.getElementById(s);"  // Save code space
-  "}"
+  "}";
+
+const char HTTP_SCRIPT_COUNTER[] PROGMEM =
+  "var cn=180;"                  // seconds
   "function u(){"
     "if(cn>=0){"
       "eb('t').innerHTML='" D_RESTART_IN " '+cn+' " D_SECONDS "';"
@@ -54,10 +57,9 @@ const char HTTP_HEAD[] PROGMEM =
       "setTimeout(u,1000);"
     "}"
   "}"
-  "function c(l){"
-    "eb('s1').value=l.innerText||l.textContent;"
-    "eb('p1').focus();"
-  "}"
+  "</script>";
+
+const char HTTP_SCRIPT_ROOT[] PROGMEM =
   "function la(p){"
     "var a='';"
     "if(la.arguments.length==1){"
@@ -77,49 +79,22 @@ const char HTTP_HEAD[] PROGMEM =
     "lt=setTimeout(la,{a});"    // Settings.web_refresh
   "}"
   "function lb(p){"
-    "la('?d='+p);"
+    "la('?d='+p);"              // ?d related to WebGetArg("d", tmp, sizeof(tmp));
   "}"
   "function lc(p){"
-    "la('?t='+p);"               // ?t related to WebGetArg("t", tmp, sizeof(tmp));
+    "la('?t='+p);"              // ?t related to WebGetArg("t", tmp, sizeof(tmp));
   "}";
 
-const char HTTP_HEAD_RELOAD[] PROGMEM =
-  "setTimeout(function(){location.href='.';},4000);";
+const char HTTP_SCRIPT_WIFI[] PROGMEM =
+  "function c(l){"
+    "eb('s1').value=l.innerText||l.textContent;"
+    "eb('p1').focus();"
+  "}";
 
-const char HTTP_HEAD_STYLE[] PROGMEM =
-  "</script>"
+const char HTTP_SCRIPT_RELOAD[] PROGMEM =
+  "setTimeout(function(){location.href='.';},5000);"
+  "</script>";
 
-  "<style>"
-  "div,fieldset,input,select{padding:5px;font-size:1em;}"
-  "input{width:100%;box-sizing:border-box;-webkit-box-sizing:border-box;-moz-box-sizing:border-box;}"
-  "select{width:100%;}"
-  "textarea{resize:none;width:98%;height:318px;padding:5px;overflow:auto;}"
-  "body{text-align:center;font-family:verdana;}"
-  "td{padding:0px;}"
-  "button{border:0;border-radius:0.3rem;background-color:#1fa3ec;color:#fff;line-height:2.4rem;font-size:1.2rem;width:100%;-webkit-transition-duration:0.4s;transition-duration:0.4s;cursor:pointer;}"
-  "button:hover{background-color:#0e70a4;}"
-  ".bred{background-color:#d43535;}"
-  ".bred:hover{background-color:#931f1f;}"
-  ".bgrn{background-color:#47c266;}"
-  ".bgrn:hover{background-color:#5aaf6f;}"
-  "a{text-decoration:none;}"
-  ".p{float:left;text-align:left;}"
-  ".q{float:right;text-align:right;}"
-  "</style>"
-
-  "</head>"
-  "<body>"
-  "<div style='text-align:left;display:inline-block;min-width:340px;'>"
-#ifdef BE_MINIMAL
-  "<div style='text-align:center;color:red;'><h3>" D_MINIMAL_FIRMWARE_PLEASE_UPGRADE "</h3></div>"
-#endif
-  "<div style='text-align:center;'><noscript>" D_NOSCRIPT "<br/></noscript>"
-#ifdef LANGUAGE_MODULE_NAME
-  "<h3>" D_MODULE " {ha</h3>"
-#else
-  "<h3>{ha " D_MODULE "</h3>"
-#endif
-  "<h2>{h}</h2></div>";
 const char HTTP_SCRIPT_CONSOL[] PROGMEM =
   "var sn=0;"                    // Scroll position
   "var id=0;"                    // Get most of weblog initially
@@ -156,28 +131,76 @@ const char HTTP_SCRIPT_CONSOL[] PROGMEM =
     "return false;"
   "}"
   "</script>";
+
 const char HTTP_SCRIPT_MODULE1[] PROGMEM =
   "var os;"
-  "function sk(s,g){"
+  "function sk(s,g){"            // s = value, g = id and name
     "var o=os.replace(\"value='\"+s+\"'\",\"selected value='\"+s+\"'\");"
     "eb('g'+g).innerHTML=o;"
   "}"
   "function sl(){"
-    "var o0=\"";
+    "if(x!=null){x.abort();}"    // Abort any request pending
+    "x=new XMLHttpRequest();"
+    "x.onreadystatechange=function(){"
+      "if(x.readyState==4&&x.status==200){"
+        "var i,o=x.responseText.replace(/}1/g,\"<option value=\").replace(/}2/g,\"</option>\");"
+        "i=o.indexOf(\"}3\");"   // String separator means do not use "}3" in Module name and Sensor name
+        "os=o.substring(0,i);"
+        "sk(}4,99);"
+        "os=o.substring(i+2);";  // +2 is length "}3"
 const char HTTP_SCRIPT_MODULE2[] PROGMEM =
-    "}1'%d'>%02d %s}2";     // "}1" and "}2" means do not use "}x" in Module name and Sensor name
+      "}"
+    "};"
+    "x.open('GET','md?m=1',true);"  // ?m related to WebServer->hasArg("m")
+    "x.send();"
+  "}";
 const char HTTP_SCRIPT_MODULE3[] PROGMEM =
-    "\";"
-    "os=o0.replace(/}1/g,\"<option value=\").replace(/}2/g,\"</option>\");";
+  "}1'%d'>%02d %s}2";            // "}1" and "}2" means do not use "}x" in Module name and Sensor name
+
 const char HTTP_SCRIPT_INFO_BEGIN[] PROGMEM =
   "function i(){"
     "var s,o=\"";
 const char HTTP_SCRIPT_INFO_END[] PROGMEM =
-    "\";"                   // "}1" and "}2" means do not use "}x" in Information text
+    "\";"                        // "}1" and "}2" means do not use "}x" in Information text
     "s=o.replace(/}1/g,\"</td></tr><tr><th>\").replace(/}2/g,\"</th><td>\");"
     "eb('i').innerHTML=s;"
   "}"
   "</script>";
+
+const char HTTP_HEAD_STYLE[] PROGMEM =
+  "</script>"
+
+  "<style>"
+  "div,fieldset,input,select{padding:5px;font-size:1em;}"
+  "input{width:100%;box-sizing:border-box;-webkit-box-sizing:border-box;-moz-box-sizing:border-box;}"
+  "select{width:100%;}"
+  "textarea{resize:none;width:98%;height:318px;padding:5px;overflow:auto;}"
+  "body{text-align:center;font-family:verdana;}"
+  "td{padding:0px;}"
+  "button{border:0;border-radius:0.3rem;background-color:#1fa3ec;color:#fff;line-height:2.4rem;font-size:1.2rem;width:100%;-webkit-transition-duration:0.4s;transition-duration:0.4s;cursor:pointer;}"
+  "button:hover{background-color:#0e70a4;}"
+  ".bred{background-color:#d43535;}"
+  ".bred:hover{background-color:#931f1f;}"
+  ".bgrn{background-color:#47c266;}"
+  ".bgrn:hover{background-color:#5aaf6f;}"
+  "a{text-decoration:none;}"
+  ".p{float:left;text-align:left;}"
+  ".q{float:right;text-align:right;}"
+  "</style>"
+
+  "</head>"
+  "<body>"
+  "<div style='text-align:left;display:inline-block;min-width:340px;'>"
+#ifdef BE_MINIMAL
+  "<div style='text-align:center;color:red;'><h3>" D_MINIMAL_FIRMWARE_PLEASE_UPGRADE "</h3></div>"
+#endif
+  "<div style='text-align:center;'><noscript>" D_NOSCRIPT "<br/></noscript>"
+#ifdef LANGUAGE_MODULE_NAME
+  "<h3>" D_MODULE " {ha</h3>"
+#else
+  "<h3>{ha " D_MODULE "</h3>"
+#endif
+  "<h2>{h}</h2>{j}</div>";
 const char HTTP_MSG_SLIDER1[] PROGMEM =
   "<div><span class='p'>" D_COLDLIGHT "</span><span class='q'>" D_WARMLIGHT "</span></div>"
   "<div><input type='range' min='153' max='500' value='%d' onchange='lc(value)'></div>";
@@ -293,7 +316,7 @@ const char HTTP_END[] PROGMEM =
   "</body>"
   "</html>";
 
-const char HTTP_DEVICE_CONTROL[] PROGMEM = "<td style='width:%d%%'><button onclick='la(\"?o=%d\");'>%s%s</button></td>";
+const char HTTP_DEVICE_CONTROL[] PROGMEM = "<td style='width:%d%%'><button onclick='la(\"?o=%d\");'>%s%s</button></td>";  // ?o is related to WebGetArg("o", tmp, sizeof(tmp));
 const char HTTP_DEVICE_STATE[] PROGMEM = "%s<td style='width:%d{c}%s;font-size:%dpx'>%s</div></td>";  // {c} = %'><div style='text-align:center;font-weight:
 
 const char HDR_CTYPE_PLAIN[] PROGMEM = "text/plain";
@@ -371,6 +394,7 @@ void StartWebserver(int type, IPAddress ipweb)
       HueWemoAddHandlers();
 #endif  // USE_EMULATION
       XdrvCall(FUNC_WEB_ADD_HANDLER);
+      XsnsCall(FUNC_WEB_ADD_HANDLER);
 #endif  // Not BE_MINIMAL
     }
     reset_web_log_flag = 0;
@@ -396,7 +420,7 @@ void StopWebserver()
 void WifiManagerBegin()
 {
   // setup AP
-  if ((WL_CONNECTED == WiFi.status()) && (static_cast<uint32_t>(WiFi.localIP()) != 0)) {
+  if (!global_state.wifi_down) {
     WiFi.mode(WIFI_AP_STA);
     AddLog_P(LOG_LEVEL_DEBUG, PSTR(D_LOG_WIFI D_WIFIMANAGER_SET_ACCESSPOINT_AND_STATION));
   } else {
@@ -452,8 +476,28 @@ void ShowPage(String &page, bool auth)
   page.replace(F("{a}"), String(Settings.web_refresh));
   page.replace(F("{ha"), my_module.name);
   page.replace(F("{h}"), Settings.friendlyname[0]);
+
+  String info = "";
+  if (Settings.flag3.gui_hostname_ip) {
+    uint8_t more_ips = 0;
+    info += F("<h3>"); info += my_hostname;
+    if (mdns_begun) { info += F(".local"); }
+    info += F(" (");
+    if (static_cast<uint32_t>(WiFi.localIP()) != 0) {
+      info += WiFi.localIP().toString();
+      more_ips++;
+    }
+    if (static_cast<uint32_t>(WiFi.softAPIP()) != 0) {
+      if (more_ips) { info += F(", "); }
+      info += WiFi.softAPIP().toString();
+    }
+    info += F(")</h3>");
+  }
+  page.replace(F("{j}"), info);
+
   if (HTTP_MANAGER == webserver_state) {
     if (WifiConfigCounter()) {
+      page.replace(F("</script>"), FPSTR(HTTP_SCRIPT_COUNTER));
       page.replace(F("<body>"), F("<body onload='u()'>"));
       page += FPSTR(HTTP_COUNTER);
     }
@@ -482,7 +526,6 @@ void WebRestart(uint8_t type)
   AddLog_P(LOG_LEVEL_DEBUG, S_LOG_HTTP, S_RESTART);
 
   String page = FPSTR(HTTP_HEAD);
-  page += FPSTR(HTTP_HEAD_RELOAD);
   page += FPSTR(HTTP_HEAD_STYLE);
 
   if (type) {
@@ -503,6 +546,7 @@ void WebRestart(uint8_t type)
   } else {
     page += FPSTR(HTTP_BTN_MAIN);
   }
+  page.replace(F("</script>"), FPSTR(HTTP_SCRIPT_RELOAD));
   ShowPage(page);
 
   ShowWebSource(SRC_WEBGUI);
@@ -555,6 +599,7 @@ void HandleRoot()
     char stemp[10];
     String page = FPSTR(HTTP_HEAD);
     page.replace(F("{v}"), FPSTR(S_MAIN_MENU));
+    page += FPSTR(HTTP_SCRIPT_ROOT);
     page += FPSTR(HTTP_HEAD_STYLE);
     page.replace(F("<body>"), F("<body onload='la()'>"));
 
@@ -596,7 +641,7 @@ void HandleRoot()
         if (idx > 0) { page += F("</tr><tr>"); }
         for (byte j = 0; j < 4; j++) {
           idx++;
-          snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("<td style='width:25%'><button onclick='la(\"?k=%d\");'>%d</button></td>"), idx, idx);
+          snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("<td style='width:25%'><button onclick='la(\"?k=%d\");'>%d</button></td>"), idx, idx);  // ?k is related to WebGetArg("k", tmp, sizeof(tmp));
           page += mqtt_data;
         }
       }
@@ -606,6 +651,7 @@ void HandleRoot()
 #ifndef BE_MINIMAL
     mqtt_data[0] = '\0';
     XdrvCall(FUNC_WEB_ADD_MAIN_BUTTON);
+    XsnsCall(FUNC_WEB_ADD_MAIN_BUTTON);
     page += String(mqtt_data);
 #endif  // Not BE_MINIMAL
 
@@ -711,6 +757,7 @@ void HandleConfiguration()
 
   mqtt_data[0] = '\0';
   XdrvCall(FUNC_WEB_ADD_BUTTON);
+  XsnsCall(FUNC_WEB_ADD_BUTTON);
   page += String(mqtt_data);
 
   page += FPSTR(HTTP_BTN_MENU4);
@@ -725,8 +772,6 @@ void HandleModuleConfiguration()
   if (HttpUser()) { return; }
   if (!WebAuthenticate()) { return WebServer->requestAuthentication(); }
 
-  AddLog_P(LOG_LEVEL_DEBUG, S_LOG_HTTP, S_CONFIGURE_MODULE);
-
   if (WebServer->hasArg("save")) {
     ModuleSaveSettings();
     WebRestart(1);
@@ -735,39 +780,42 @@ void HandleModuleConfiguration()
 
   char stemp[20];
   uint8_t midx;
+  mytmplt cmodule;
+  memcpy_P(&cmodule, &kModules[Settings.module], sizeof(cmodule));
+
+  if (WebServer->hasArg("m")) {
+    String page = "";
+    for (byte i = 0; i < MAXMODULE; i++) {
+      midx = pgm_read_byte(kModuleNiceList + i);
+      snprintf_P(stemp, sizeof(stemp), kModules[midx].name);
+      snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SCRIPT_MODULE3, midx, midx +1, stemp);
+      page += mqtt_data;
+    }
+    page += "}3";  // String separator means do not use "}3" in Module name and Sensor name
+    for (byte j = 0; j < sizeof(kGpioNiceList); j++) {
+      midx = pgm_read_byte(kGpioNiceList + j);
+      if (!GetUsedInModule(midx, cmodule.gp.io)) {
+        snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SCRIPT_MODULE3, midx, midx, GetTextIndexed(stemp, sizeof(stemp), midx, kSensorNames));
+        page += mqtt_data;
+      }
+    }
+    WebServer->send(200, FPSTR(HDR_CTYPE_PLAIN), page);
+    return;
+  }
+
+  AddLog_P(LOG_LEVEL_DEBUG, S_LOG_HTTP, S_CONFIGURE_MODULE);
 
   String page = FPSTR(HTTP_HEAD);
   page.replace(F("{v}"), FPSTR(S_CONFIGURE_MODULE));
   page += FPSTR(HTTP_SCRIPT_MODULE1);
-  for (byte i = 0; i < MAXMODULE; i++) {
-    midx = pgm_read_byte(kModuleNiceList + i);
-    snprintf_P(stemp, sizeof(stemp), kModules[midx].name);
-    snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SCRIPT_MODULE2, midx, midx +1, stemp);
-    page += mqtt_data;
-  }
-  page += FPSTR(HTTP_SCRIPT_MODULE3);
-  snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("sk(%d,99);o0=\""), Settings.module);  // g99
-  page += mqtt_data;
-
-  mytmplt cmodule;
-  memcpy_P(&cmodule, &kModules[Settings.module], sizeof(cmodule));
-  for (byte j = 0; j < GPIO_SENSOR_END; j++) {
-    midx = pgm_read_byte(kGpioNiceList + j);
-    if (!GetUsedInModule(midx, cmodule.gp.io)) {
-      snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SCRIPT_MODULE2, midx, midx, GetTextIndexed(stemp, sizeof(stemp), midx, kSensorNames));
-      page += mqtt_data;
-    }
-  }
-  page += FPSTR(HTTP_SCRIPT_MODULE3);
-
+  page.replace(F("}4"), String(Settings.module));
   for (byte i = 0; i < MAX_GPIO_PIN; i++) {
     if (GPIO_USER == ValidGPIO(i, cmodule.gp.io[i])) {
       snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("sk(%d,%d);"), my_module.gp.io[i], i);  // g0 - g16
       page += mqtt_data;
     }
   }
-  page += F("}");
-
+  page += FPSTR(HTTP_SCRIPT_MODULE2);
   page += FPSTR(HTTP_HEAD_STYLE);
   page.replace(F("<body>"), F("<body onload='sl()'>"));
   page += FPSTR(HTTP_FORM_MODULE);
@@ -845,6 +893,7 @@ void HandleWifiConfiguration()
 
   String page = FPSTR(HTTP_HEAD);
   page.replace(F("{v}"), FPSTR(S_CONFIGURE_WIFI));
+  page += FPSTR(HTTP_SCRIPT_WIFI);
   page += FPSTR(HTTP_HEAD_STYLE);
 
   if (WebServer->hasArg("scan")) {
@@ -1220,11 +1269,11 @@ void HandleInformation()
   // }2 = </th><td>
   String func = FPSTR(HTTP_SCRIPT_INFO_BEGIN);
   func += F("<table style='width:100%'><tr><th>");
-  func += F(D_PROGRAM_VERSION "}2"); func += my_version;
+  func += F(D_PROGRAM_VERSION "}2"); func += my_version; func += my_image;
   func += F("}1" D_BUILD_DATE_AND_TIME "}2"); func += GetBuildDateAndTime();
   func += F("}1" D_CORE_AND_SDK_VERSION "}2" ARDUINO_ESP8266_RELEASE "/"); func += String(ESP.getSdkVersion());
   func += F("}1" D_UPTIME "}2"); func += GetUptime();
-  snprintf_P(stopic, sizeof(stopic), PSTR(" at %X"), GetSettingsAddress());
+  snprintf_P(stopic, sizeof(stopic), PSTR(" at 0x%X"), GetSettingsAddress());
   func += F("}1" D_FLASH_WRITE_COUNT "}2"); func += String(Settings.save_flag); func += stopic;
   func += F("}1" D_BOOT_COUNT "}2"); func += String(Settings.bootcount);
   func += F("}1" D_RESTART_REASON "}2"); func += GetResetReason();
@@ -1238,6 +1287,7 @@ void HandleInformation()
   func += F("}1" D_AP); func += String(Settings.sta_active +1);
     func += F(" " D_SSID " (" D_RSSI ")}2"); func += Settings.sta_ssid[Settings.sta_active]; func += F(" ("); func += WifiGetRssiAsQuality(WiFi.RSSI()); func += F("%)");
   func += F("}1" D_HOSTNAME "}2"); func += my_hostname;
+  if (mdns_begun) { func += F(".local"); }
   if (static_cast<uint32_t>(WiFi.localIP()) != 0) {
     func += F("}1" D_IP_ADDRESS "}2"); func += WiFi.localIP().toString();
     func += F("}1" D_GATEWAY "}2"); func += IPAddress(Settings.ip_address[1]).toString();
@@ -1297,7 +1347,8 @@ void HandleInformation()
 
   func += F("}1}2&nbsp;");  // Empty line
   func += F("}1" D_ESP_CHIP_ID "}2"); func += String(ESP.getChipId());
-  func += F("}1" D_FLASH_CHIP_ID "}2"); func += String(ESP.getFlashChipId());
+  snprintf_P(stopic, sizeof(stopic), PSTR("0x%06X"), ESP.getFlashChipId());
+  func += F("}1" D_FLASH_CHIP_ID "}2"); func += stopic;
   func += F("}1" D_FLASH_CHIP_SIZE "}2"); func += String(ESP.getFlashChipRealSize() / 1024); func += F("kB");
   func += F("}1" D_PROGRAM_FLASH_SIZE "}2"); func += String(ESP.getFlashChipSize() / 1024); func += F("kB");
   func += F("}1" D_PROGRAM_SIZE "}2"); func += String(ESP.getSketchSize() / 1024); func += F("kB");
@@ -1358,6 +1409,7 @@ void HandleUpgradeFirmwareStart()
   page += F("<div style='text-align:center;'><b>" D_UPGRADE_STARTED " ...</b></div>");
   page += FPSTR(HTTP_MSG_RSTRT);
   page += FPSTR(HTTP_BTN_MAIN);
+//  page.replace(F("</script>"), FPSTR(HTTP_SCRIPT_RELOAD));
   ShowPage(page);
 
   snprintf_P(svalue, sizeof(svalue), PSTR(D_CMND_UPGRADE " 1"));
@@ -1408,6 +1460,7 @@ void HandleUploadDone()
   } else {
     page += F("green'>" D_SUCCESSFUL "</font></b><br/>");
     page += FPSTR(HTTP_MSG_RSTRT);
+    page.replace(F("</script>"), FPSTR(HTTP_SCRIPT_RELOAD));
     ShowWebSource(SRC_WEBGUI);
     restart_flag = 2;  // Always restart to re-enable disabled features during update
   }
@@ -1842,9 +1895,11 @@ String UrlEncode(const String& text)
 
 int WebSend(char *buffer)
 {
-  // http://192.168.178.86:80/cm?user=admin&password=joker&cmnd=POWER1 ON
-  // http://192.168.178.86:80/cm?cmnd=POWER1 ON
-  // [192.168.178.86:80,admin:joker] POWER1 ON
+  /* [sonoff] POWER1 ON                                               --> Sends http://sonoff/cm?cmnd=POWER1 ON
+   * [192.168.178.86:80,admin:joker] POWER1 ON                        --> Sends http://hostname:80/cm?user=admin&password=joker&cmnd=POWER1 ON
+   * [sonoff] /any/link/starting/with/a/slash.php?log=123             --> Sends http://sonoff/any/link/starting/with/a/slash.php?log=123
+   * [sonoff,admin:joker] /any/link/starting/with/a/slash.php?log=123 --> Sends http://sonoff/any/link/starting/with/a/slash.php?log=123
+   */
 
   char *host;
   char *port;
@@ -1854,31 +1909,38 @@ int WebSend(char *buffer)
   uint16_t nport = 80;
   int status = 1;                             // Wrong parameters
 
-  host = strtok_r(buffer, "]", &command);     // buffer = [192.168.178.86:80,admin:joker] POWER1 ON
+                                              // buffer = |  [  192.168.178.86  :  80  ,  admin  :  joker  ]    POWER1 ON   |
+  host = strtok_r(buffer, "]", &command);     // host = |  [  192.168.178.86  :  80  ,  admin  :  joker  |, command = |    POWER1 ON   |
   if (host && command) {
-    host = LTrim(host);
-    host++;  // Skip [
-    host = strtok_r(host, ",", &user);        // host = 192.168.178.86:80,admin:joker > 192.168.178.86:80
-    host = strtok_r(host, ":", &port);        // host = 192.168.178.86:80 > 192.168.178.86
-    if (user) {
-      user = strtok_r(user, ":", &password);  // user = admin:joker > admin
+    host = Trim(host);                        // host = |[  192.168.178.86  :  80  ,  admin  :  joker|
+    host++;                                   // host = |  192.168.178.86  :  80  ,  admin  :  joker| - Skip [
+    host = strtok_r(host, ",", &user);        // host = |  192.168.178.86  :  80  |, user = |  admin  :  joker|
+    host = strtok_r(host, ":", &port);        // host = |  192.168.178.86  |, port = |  80  |
+    host = Trim(host);                        // host = |192.168.178.86|
+    if (port) {
+      port = Trim(port);                      // port = |80|
+      nport = atoi(port);
     }
-
-//snprintf_P(log_data, sizeof(log_data), PSTR("DBG: Buffer |%X|, Host |%X|, Port |%X|, User |%X|, Password |%X|, Command |%X|"), buffer, host, port, user, password, command);
-//AddLog(LOG_LEVEL_DEBUG);
-
-    if (port) { nport = atoi(port); }
+    if (user) {
+      user = strtok_r(user, ":", &password);  // user = |  admin  |, password = |  joker|
+      user = Trim(user);                      // user = |admin|
+      if (password) { password = Trim(password); }  // password = |joker|
+    }
+    command = Trim(command);                  // command = |POWER1 ON| or |/any/link/starting/with/a/slash.php?log=123|
 
     String nuri = "";
-    if (user && password) {
-      nuri += F("user=");
-      nuri += user;
-      nuri += F("&password=");
-      nuri += password;
-      nuri += F("&");
+    if (command[0] != '/') {
+      nuri = "/cm?";
+      if (user && password) {
+        nuri += F("user=");
+        nuri += user;
+        nuri += F("&password=");
+        nuri += password;
+        nuri += F("&");
+      }
+      nuri += F("cmnd=");
     }
-    nuri += F("cmnd=");
-    nuri += LTrim(command);
+    nuri += command;
     String uri = UrlEncode(nuri);
 
     IPAddress host_ip;
@@ -1894,15 +1956,16 @@ int WebSend(char *buffer)
       }
 
       if (connected) {
-        String url = F("GET /cm?");
+        String url = F("GET ");
         url += uri;
-        url += F(" HTTP/1.1\r\n Host: ");
-        url += IPAddress(host_ip).toString();
+        url += F(" HTTP/1.1\r\nHost: ");
+//        url += IPAddress(host_ip).toString();
+        url += host;   // https://tools.ietf.org/html/rfc7230#section-5.4 (#4331)
         if (port) {
-          url += F(" \r\n Port: ");
+          url += F(":");
           url += port;
         }
-        url += F(" \r\n Connection: close\r\n\r\n");
+        url += F("\r\nConnection: close\r\n\r\n");
 
 //snprintf_P(log_data, sizeof(log_data), PSTR("DBG: Url |%s|"), url.c_str());
 //AddLog(LOG_LEVEL_DEBUG);
@@ -1985,8 +2048,6 @@ bool WebCommand()
 /*********************************************************************************************\
  * Interface
 \*********************************************************************************************/
-
-#define XDRV_01
 
 boolean Xdrv01(byte function)
 {

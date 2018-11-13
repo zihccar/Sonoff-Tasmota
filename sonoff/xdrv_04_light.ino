@@ -51,6 +51,8 @@
  *
 \*********************************************************************************************/
 
+#define XDRV_04              4
+
 #define WS2812_SCHEMES       7    // Number of additional WS2812 schemes supported by xdrv_ws2812.ino
 
 enum LightCommands {
@@ -359,7 +361,7 @@ void LightInit()
         pinMode(pin[GPIO_PWM1 +i], OUTPUT);
       }
     }
-    if (LT_PWM1 == light_type) {
+    if (LT_PWM1 == light_type || LT_SERIAL == light_type) {
       Settings.light_color[0] = 255;    // One PWM channel only supports Dimmer but needs max color
     }
     if (SONOFF_LED == Settings.module) { // Fix Sonoff Led instabilities
@@ -391,6 +393,9 @@ void LightInit()
     max_scheme = LS_MAX + WS2812_SCHEMES;
   }
 #endif  // USE_WS2812 ************************************************************************
+  else if (LT_SERIAL == light_type) {
+    light_subtype = LST_SINGLE;
+  }
   else {
     light_pdi_pin = pin[GPIO_DI];
     light_pdcki_pin = pin[GPIO_DCKI];
@@ -821,6 +826,11 @@ void LightAnimate()
       if (light_type > LT_WS2812) {
         LightMy92x1Duty(cur_col[0], cur_col[1], cur_col[2], cur_col[3], cur_col[4]);
       }
+#ifdef USE_TUYA_DIMMER
+      if (light_type == LT_SERIAL) {
+        LightSerialDuty(cur_col[0]);
+      }
+#endif  // USE_TUYA_DIMMER
     }
   }
 }
@@ -1360,8 +1370,6 @@ boolean LightCommand()
 /*********************************************************************************************\
  * Interface
 \*********************************************************************************************/
-
-#define XDRV_04
 
 boolean Xdrv04(byte function)
 {
