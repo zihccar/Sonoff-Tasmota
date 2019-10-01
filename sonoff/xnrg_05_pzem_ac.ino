@@ -1,7 +1,7 @@
 /*
   xnrg_05_pzem_ac.ino - PZEM-014,016 Modbus AC energy sensor support for Sonoff-Tasmota
 
-  Copyright (C) 2018  Theo Arends
+  Copyright (C) 2019  Theo Arends
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -36,88 +36,128 @@
 #include <TasmotaModbus.h>
 TasmotaModbus *PzemAcModbus;
 
-void PzemAcEverySecond()
-{
-  static uint8_t send_retry = 0;
+struct PZEMAC {
+  float energy = 0;
+  uint8_t send_retry = 0;
+  uint8_t phase = 0;
+  uint8_t address = 0;
+  uint8_t address_step = ADDR_IDLE;
+} PzemAc;
 
+void PzemAcEverySecond(void)
+{
   bool data_ready = PzemAcModbus->ReceiveReady();
 
   if (data_ready) {
-    uint8_t buffer[26];
+    uint8_t buffer[30];  // At least 5 + (2 * 10) = 25
 
-    uint8_t error = PzemAcModbus->ReceiveBuffer(buffer, 10);
-    AddLogSerial(LOG_LEVEL_DEBUG_MORE, buffer, (buffer[2]) ? buffer[2] +5 : sizeof(buffer));
+    uint8_t registers = 10;
+    if (ADDR_RECEIVE == PzemAc.address_step) {
+      registers = 2;     // Need 1 byte extra as response is F8 06 00 02 00 01 FD A3
+      PzemAc.address_step--;
+    }
+    uint8_t error = PzemAcModbus->ReceiveBuffer(buffer, registers);
+    AddLogBuffer(LOG_LEVEL_DEBUG_MORE, buffer, PzemAcModbus->ReceiveCount());
 
     if (error) {
-      snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_DEBUG "PzemAc response error %d"), error);
-      AddLog(LOG_LEVEL_DEBUG);
+      AddLog_P2(LOG_LEVEL_DEBUG, PSTR("PAC: PzemAc %d error %d"), PZEM_AC_DEVICE_ADDRESS + PzemAc.phase, error);
     } else {
-      //  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
-      // 01 04 14 08 D1 00 6C 00 00 00 F4 00 00 00 26 00 00 01 F4 00 64 00 00 51 34
-      // Id Cc Sz Volt- Current---- Power------ Energy----- Frequ PFact Alarm Crc--
-      energy_voltage = (float)((buffer[3] << 8) + buffer[4]) / 10.0;                                                  // 6553.0 V
-      energy_current = (float)((buffer[7] << 24) + (buffer[8] << 16) + (buffer[5] << 8) + buffer[6]) / 1000.0;        // 4294967.000 A
-      energy_active_power = (float)((buffer[11] << 24) + (buffer[12] << 16) + (buffer[9] << 8) + buffer[10]) / 10.0;  // 429496729.0 W
-      energy_frequency = (float)((buffer[17] << 8) + buffer[18]) / 10.0;                                              // 50.0 Hz
-      energy_power_factor = (float)((buffer[19] << 8) + buffer[20]) / 100.0;                                          // 1.00
-      float energy = (float)((buffer[15] << 24) + (buffer[16] << 16) + (buffer[13] << 8) + buffer[14]);               // 4294967295 Wh
+      Energy.data_valid[PzemAc.phase] = 0;
+      if (10 == registers) {
 
-      if (!energy_start || (energy < energy_start)) { energy_start = energy; }  // Init after restart and hanlde roll-over if any
-      energy_kWhtoday += (energy - energy_start) * 100;
-      energy_start = energy;
-      EnergyUpdateToday();
+        //  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
+        // 01 04 14 08 D1 00 6C 00 00 00 F4 00 00 00 26 00 00 01 F4 00 64 00 00 51 34
+        // Id Cc Sz Volt- Current---- Power------ Energy----- Frequ PFact Alarm Crc--
+        Energy.voltage[PzemAc.phase] = (float)((buffer[3] << 8) + buffer[4]) / 10.0;                                                  // 6553.0 V
+        Energy.current[PzemAc.phase] = (float)((buffer[7] << 24) + (buffer[8] << 16) + (buffer[5] << 8) + buffer[6]) / 1000.0;        // 4294967.000 A
+        Energy.active_power[PzemAc.phase] = (float)((buffer[11] << 24) + (buffer[12] << 16) + (buffer[9] << 8) + buffer[10]) / 10.0;  // 429496729.0 W
+        Energy.frequency[PzemAc.phase] = (float)((buffer[17] << 8) + buffer[18]) / 10.0;                                              // 50.0 Hz
+        Energy.power_factor[PzemAc.phase] = (float)((buffer[19] << 8) + buffer[20]) / 100.0;                                          // 1.00
+
+        PzemAc.energy += (float)((buffer[15] << 24) + (buffer[16] << 16) + (buffer[13] << 8) + buffer[14]);                           // 4294967295 Wh
+        if (PzemAc.phase == Energy.phase_count -1) {
+          EnergyUpdateTotal(PzemAc.energy, false);
+          PzemAc.energy = 0;
+        }
+      }
     }
   }
 
-  if (0 == send_retry || data_ready) {
-    send_retry = 5;
-    PzemAcModbus->Send(PZEM_AC_DEVICE_ADDRESS, 0x04, 0, 10);
+  if (0 == PzemAc.send_retry || data_ready) {
+    PzemAc.phase++;
+    if (PzemAc.phase >= Energy.phase_count) {
+      PzemAc.phase = 0;
+    }
+    PzemAc.send_retry = ENERGY_WATCHDOG;
+    if (ADDR_SEND == PzemAc.address_step) {
+      PzemAcModbus->Send(0xF8, 0x06, 0x0002, (uint16_t)PzemAc.address);
+      PzemAc.address_step--;
+    } else {
+      PzemAcModbus->Send(PZEM_AC_DEVICE_ADDRESS + PzemAc.phase, 0x04, 0, 10);
+    }
   }
   else {
-    send_retry--;
+    PzemAc.send_retry--;
+    if ((Energy.phase_count > 1) && (0 == PzemAc.send_retry) && (uptime < 30)) {
+      Energy.phase_count--;  // Decrement phases if no response after retry within 30 seconds after restart
+    }
   }
 }
 
-void PzemAcSnsInit()
+void PzemAcSnsInit(void)
 {
   PzemAcModbus = new TasmotaModbus(pin[GPIO_PZEM016_RX], pin[GPIO_PZEM0XX_TX]);
   uint8_t result = PzemAcModbus->Begin(9600);
   if (result) {
     if (2 == result) { ClaimSerial(); }
+    Energy.phase_count = 3;  // Start off with three phases
+    PzemAc.phase = 2;
   } else {
     energy_flg = ENERGY_NONE;
   }
 }
 
-void PzemAcDrvInit()
+void PzemAcDrvInit(void)
 {
-  if (!energy_flg) {
-    if ((pin[GPIO_PZEM016_RX] < 99) && (pin[GPIO_PZEM0XX_TX] < 99)) {
-      energy_flg = XNRG_05;
-    }
+  if ((pin[GPIO_PZEM016_RX] < 99) && (pin[GPIO_PZEM0XX_TX] < 99)) {
+    energy_flg = XNRG_05;
   }
+}
+
+bool PzemAcCommand(void)
+{
+  bool serviced = true;
+
+  if (CMND_MODULEADDRESS == Energy.command_code) {
+    PzemAc.address = XdrvMailbox.payload;  // Valid addresses are 1, 2 and 3
+    PzemAc.address_step = ADDR_SEND;
+  }
+  else serviced = false;  // Unknown command
+
+  return serviced;
 }
 
 /*********************************************************************************************\
  * Interface
 \*********************************************************************************************/
 
-int Xnrg05(byte function)
+bool Xnrg05(uint8_t function)
 {
-  int result = 0;
+  bool result = false;
 
-  if (FUNC_PRE_INIT == function) {
-    PzemAcDrvInit();
-  }
-  else if (XNRG_05 == energy_flg) {
-    switch (function) {
-      case FUNC_INIT:
-        PzemAcSnsInit();
-        break;
-      case FUNC_EVERY_SECOND:
-        PzemAcEverySecond();
-        break;
-    }
+  switch (function) {
+    case FUNC_ENERGY_EVERY_SECOND:
+      if (uptime > 4) { PzemAcEverySecond(); }  // Fix start up issue #5875
+      break;
+    case FUNC_COMMAND:
+      result = PzemAcCommand();
+      break;
+    case FUNC_INIT:
+      PzemAcSnsInit();
+      break;
+    case FUNC_PRE_INIT:
+      PzemAcDrvInit();
+      break;
   }
   return result;
 }

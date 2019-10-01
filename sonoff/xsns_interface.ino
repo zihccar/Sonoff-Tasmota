@@ -1,7 +1,7 @@
 /*
   xsns_interface.ino - Sensor interface support for Sonoff-Tasmota
 
-  Copyright (C) 2018  Theo Arends inspired by ESPEasy
+  Copyright (C) 2019  Theo Arends inspired by ESPEasy
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -18,9 +18,9 @@
 */
 
 #ifdef XFUNC_PTR_IN_ROM
-boolean (* const xsns_func_ptr[])(byte) PROGMEM = {  // Sensor Function Pointers for simple implementation of sensors
+bool (* const xsns_func_ptr[])(uint8_t) PROGMEM = {  // Sensor Function Pointers for simple implementation of sensors
 #else
-boolean (* const xsns_func_ptr[])(byte) = {  // Sensor Function Pointers for simple implementation of sensors
+bool (* const xsns_func_ptr[])(uint8_t) = {  // Sensor Function Pointers for simple implementation of sensors
 #endif
 
 #ifdef XSNS_01
@@ -223,7 +223,165 @@ boolean (* const xsns_func_ptr[])(byte) = {  // Sensor Function Pointers for sim
   &Xsns50,
 #endif
 
-// Optional user defined sensors in range 91 - 99
+#ifdef XSNS_51
+  &Xsns51,
+#endif
+
+#ifdef XSNS_52
+  &Xsns52,
+#endif
+
+#ifdef XSNS_53
+  &Xsns53,
+#endif
+
+#ifdef XSNS_54
+  &Xsns54,
+#endif
+
+#ifdef XSNS_55
+  &Xsns55,
+#endif
+
+#ifdef XSNS_56
+  &Xsns56,
+#endif
+
+#ifdef XSNS_57
+  &Xsns57,
+#endif
+
+#ifdef XSNS_58
+  &Xsns58,
+#endif
+
+#ifdef XSNS_59
+  &Xsns59,
+#endif
+
+#ifdef XSNS_60
+  &Xsns60,
+#endif
+
+#ifdef XSNS_61
+  &Xsns61,
+#endif
+
+#ifdef XSNS_62
+  &Xsns62,
+#endif
+
+#ifdef XSNS_63
+  &Xsns63,
+#endif
+
+#ifdef XSNS_64
+  &Xsns64,
+#endif
+
+#ifdef XSNS_65
+  &Xsns65,
+#endif
+
+#ifdef XSNS_66
+  &Xsns66,
+#endif
+
+#ifdef XSNS_67
+  &Xsns67,
+#endif
+
+#ifdef XSNS_68
+  &Xsns68,
+#endif
+
+#ifdef XSNS_69
+  &Xsns69,
+#endif
+
+#ifdef XSNS_70
+  &Xsns70,
+#endif
+
+#ifdef XSNS_71
+  &Xsns71,
+#endif
+
+#ifdef XSNS_72
+  &Xsns72,
+#endif
+
+#ifdef XSNS_73
+  &Xsns73,
+#endif
+
+#ifdef XSNS_74
+  &Xsns74,
+#endif
+
+#ifdef XSNS_75
+  &Xsns75,
+#endif
+
+#ifdef XSNS_76
+  &Xsns76,
+#endif
+
+#ifdef XSNS_77
+  &Xsns77,
+#endif
+
+#ifdef XSNS_78
+  &Xsns78,
+#endif
+
+#ifdef XSNS_79
+  &Xsns79,
+#endif
+
+#ifdef XSNS_80
+  &Xsns80,
+#endif
+
+#ifdef XSNS_81
+  &Xsns81,
+#endif
+
+#ifdef XSNS_82
+  &Xsns82,
+#endif
+
+#ifdef XSNS_83
+  &Xsns83,
+#endif
+
+#ifdef XSNS_84
+  &Xsns84,
+#endif
+
+#ifdef XSNS_85
+  &Xsns85,
+#endif
+
+#ifdef XSNS_86
+  &Xsns86,
+#endif
+
+#ifdef XSNS_87
+  &Xsns87,
+#endif
+
+#ifdef XSNS_88
+  &Xsns88,
+#endif
+
+#ifdef XSNS_89
+  &Xsns89,
+#endif
+
+#ifdef XSNS_90
+  &Xsns90,
+#endif
 
 #ifdef XSNS_91
   &Xsns91,
@@ -263,7 +421,10 @@ boolean (* const xsns_func_ptr[])(byte) = {  // Sensor Function Pointers for sim
 };
 
 const uint8_t xsns_present = sizeof(xsns_func_ptr) / sizeof(xsns_func_ptr[0]);  // Number of External Sensors found
-uint8_t xsns_index = 0;
+
+/*********************************************************************************************\
+ * Xsns available list
+\*********************************************************************************************/
 
 #ifdef XFUNC_PTR_IN_ROM
 const uint8_t kXsnsList[] PROGMEM = {
@@ -471,7 +632,165 @@ const uint8_t kXsnsList[] = {
   XSNS_50,
 #endif
 
-// Optional user defined sensors in range 91 - 99
+#ifdef XSNS_51
+  XSNS_51,
+#endif
+
+#ifdef XSNS_52
+  XSNS_52,
+#endif
+
+#ifdef XSNS_53
+  XSNS_53,
+#endif
+
+#ifdef XSNS_54
+  XSNS_54,
+#endif
+
+#ifdef XSNS_55
+  XSNS_55,
+#endif
+
+#ifdef XSNS_56
+  XSNS_56,
+#endif
+
+#ifdef XSNS_57
+  XSNS_57,
+#endif
+
+#ifdef XSNS_58
+  XSNS_58,
+#endif
+
+#ifdef XSNS_59
+  XSNS_59,
+#endif
+
+#ifdef XSNS_60
+  XSNS_60,
+#endif
+
+#ifdef XSNS_61
+  XSNS_61,
+#endif
+
+#ifdef XSNS_62
+  XSNS_62,
+#endif
+
+#ifdef XSNS_63
+  XSNS_63,
+#endif
+
+#ifdef XSNS_64
+  XSNS_64,
+#endif
+
+#ifdef XSNS_65
+  XSNS_65,
+#endif
+
+#ifdef XSNS_66
+  XSNS_66,
+#endif
+
+#ifdef XSNS_67
+  XSNS_67,
+#endif
+
+#ifdef XSNS_68
+  XSNS_68,
+#endif
+
+#ifdef XSNS_69
+  XSNS_69,
+#endif
+
+#ifdef XSNS_70
+  XSNS_70,
+#endif
+
+#ifdef XSNS_71
+  XSNS_71,
+#endif
+
+#ifdef XSNS_72
+  XSNS_72,
+#endif
+
+#ifdef XSNS_73
+  XSNS_73,
+#endif
+
+#ifdef XSNS_74
+  XSNS_74,
+#endif
+
+#ifdef XSNS_75
+  XSNS_75,
+#endif
+
+#ifdef XSNS_76
+  XSNS_76,
+#endif
+
+#ifdef XSNS_77
+  XSNS_77,
+#endif
+
+#ifdef XSNS_78
+  XSNS_78,
+#endif
+
+#ifdef XSNS_79
+  XSNS_79,
+#endif
+
+#ifdef XSNS_80
+  XSNS_80,
+#endif
+
+#ifdef XSNS_81
+  XSNS_81,
+#endif
+
+#ifdef XSNS_82
+  XSNS_82,
+#endif
+
+#ifdef XSNS_83
+  XSNS_83,
+#endif
+
+#ifdef XSNS_84
+  XSNS_84,
+#endif
+
+#ifdef XSNS_85
+  XSNS_85,
+#endif
+
+#ifdef XSNS_86
+  XSNS_86,
+#endif
+
+#ifdef XSNS_87
+  XSNS_87,
+#endif
+
+#ifdef XSNS_88
+  XSNS_88,
+#endif
+
+#ifdef XSNS_89
+  XSNS_89,
+#endif
+
+#ifdef XSNS_90
+  XSNS_90,
+#endif
 
 #ifdef XSNS_91
   XSNS_91,
@@ -510,105 +829,108 @@ const uint8_t kXsnsList[] = {
 #endif
 };
 
+/*********************************************************************************************/
+
+bool XsnsEnabled(uint32_t sns_index)
+{
+  if (sns_index < sizeof(kXsnsList)) {
+#ifdef XFUNC_PTR_IN_ROM
+    uint32_t index = pgm_read_byte(kXsnsList + sns_index);
+#else
+    uint32_t index = kXsnsList[sns_index];
+#endif
+    return bitRead(Settings.sensors[index / 32], index % 32);
+  }
+  return true;
+}
+
+void XsnsSensorState(void)
+{
+  ResponseAppend_P(PSTR("\""));  // Use string for enable/disable signal
+  for (uint32_t i = 0; i < sizeof(kXsnsList); i++) {
+#ifdef XFUNC_PTR_IN_ROM
+    uint32_t sensorid = pgm_read_byte(kXsnsList + i);
+#else
+    uint32_t sensorid = kXsnsList[i];
+#endif
+    bool disabled = false;
+    if (sensorid < MAX_XSNS_DRIVERS) {
+      disabled = !bitRead(Settings.sensors[sensorid / 32], sensorid % 32);
+    }
+    ResponseAppend_P(PSTR("%s%s%d"), (i) ? "," : "", (disabled) ? "!" : "", sensorid);
+  }
+  ResponseAppend_P(PSTR("\""));
+}
 
 /*********************************************************************************************\
  * Function call to all xsns
 \*********************************************************************************************/
 
-boolean XsnsEnabled(byte sns_index)
-{
-  if (sns_index < sizeof(kXsnsList)) {
-#ifdef XFUNC_PTR_IN_ROM
-    uint8_t index = pgm_read_byte(kXsnsList + sns_index);
-#else
-    uint8_t index = kXsnsList[sns_index];
-#endif
-    return bitRead(Settings.sensors[index / 32], index % 32);
-  }
-  return 1;
-}
-
-boolean XsnsPresent(byte sns_index)
-{
-  uint8_t index = 0;
-  for (byte i = 0; i < sizeof(kXsnsList); i++) {
-#ifdef XFUNC_PTR_IN_ROM
-    index = pgm_read_byte(kXsnsList + i);
-#else
-    index = kXsnsList[i];
-#endif
-    if (index == sns_index) { return true; }
-  }
-  return false;
-}
-
-String XsnsGetSensors()
-{
-  char state[2] = { 0 };
-
-  String data = F("[");
-  for (byte i = 0; i < MAX_XSNS_DRIVERS; i++) {
-    if (i && (!(i % 16))) { data += F(","); }
-    if (!(i % 16)) { data += F("\""); }
-    state[0] = '-';
-    if (XsnsPresent(i)) { state[0] = bitRead(Settings.sensors[i / 32], i % 32) ? '1' : '0'; }
-    data += String(state);
-    if (i && (!((i +1) % 16))) { data += F("\""); }
-  }
-  data += F("]");
-
-  return data;
-}
-
-boolean XsnsNextCall(byte Function)
+bool XsnsNextCall(uint8_t Function, uint8_t &xsns_index)
 {
   xsns_index++;
   if (xsns_index == xsns_present) { xsns_index = 0; }
-  while (!XsnsEnabled(xsns_index) && !xsns_index) {  // Perform at least first sensor (counter)
-    xsns_index++;
-    if (xsns_index == xsns_present) { xsns_index = 0; }
+
+#ifndef USE_DEBUG_DRIVER
+  if (FUNC_WEB_SENSOR == Function) {  // Skip web info for disabled sensors
+#endif
+    uint32_t max_disabled = xsns_present;
+    while (!XsnsEnabled(xsns_index) && max_disabled--) {  // Perform at least one sensor
+      xsns_index++;
+      if (xsns_index == xsns_present) { xsns_index = 0; }
+    }
+#ifndef USE_DEBUG_DRIVER
   }
-  AppDelay();
+#endif
+
   return xsns_func_ptr[xsns_index](Function);
 }
 
-boolean XsnsCall(byte Function)
+bool XsnsCall(uint8_t Function)
 {
-  boolean result = false;
+  bool result = false;
 
 #ifdef PROFILE_XSNS_EVERY_SECOND
   uint32_t profile_start_millis = millis();
 #endif  // PROFILE_XSNS_EVERY_SECOND
 
-  for (byte x = 0; x < xsns_present; x++) {
-    if (XsnsEnabled(x)) {
+  for (uint32_t x = 0; x < xsns_present; x++) {
+#ifdef USE_DEBUG_DRIVER
+    if (XsnsEnabled(x)) {  // Skip disabled sensor in debug mode
+#endif
+
+      if ((FUNC_WEB_SENSOR == Function) && !XsnsEnabled(x)) { continue; }  // Skip web info for disabled sensors
 
 #ifdef PROFILE_XSNS_SENSOR_EVERY_SECOND
       uint32_t profile_start_millis = millis();
 #endif  // PROFILE_XSNS_SENSOR_EVERY_SECOND
-      AppDelay();
       result = xsns_func_ptr[x](Function);
 
 #ifdef PROFILE_XSNS_SENSOR_EVERY_SECOND
       uint32_t profile_millis = millis() - profile_start_millis;
       if (profile_millis) {
         if (FUNC_EVERY_SECOND == Function) {
-          snprintf_P(log_data, sizeof(log_data), PSTR("PRF: At %08u XsnsCall %d to Sensor %d took %u mS"), uptime, Function, x, profile_millis);
-          AddLog(LOG_LEVEL_DEBUG);
+          AddLog_P2(LOG_LEVEL_DEBUG, PSTR("PRF: At %08u XsnsCall %d to Sensor %d took %u mS"), uptime, Function, x, profile_millis);
         }
       }
 #endif  // PROFILE_XSNS_SENSOR_EVERY_SECOND
 
-      if (result) break;
+      if (result && ((FUNC_COMMAND == Function) ||
+                     (FUNC_PIN_STATE == Function) ||
+                     (FUNC_COMMAND_SENSOR == Function)
+                    )) {
+        break;
+      }
+#ifdef USE_DEBUG_DRIVER
     }
+#endif
   }
 
 #ifdef PROFILE_XSNS_EVERY_SECOND
   uint32_t profile_millis = millis() - profile_start_millis;
   if (profile_millis) {
     if (FUNC_EVERY_SECOND == Function) {
-      snprintf_P(log_data, sizeof(log_data), PSTR("PRF: At %08u XsnsCall %d took %u mS"), uptime, Function, profile_millis);
-      AddLog(LOG_LEVEL_DEBUG);
+      AddLog_P2(LOG_LEVEL_DEBUG, PSTR("PRF: At %08u XsnsCall %d took %u mS"), uptime, Function, profile_millis);
     }
   }
 #endif  // PROFILE_XSNS_EVERY_SECOND

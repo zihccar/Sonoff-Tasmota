@@ -1,7 +1,7 @@
 /*
   xnrg_01_hlw8012.ino - HLW8012 (Sonoff Pow) energy sensor support for Sonoff-Tasmota
 
-  Copyright (C) 2018  Theo Arends
+  Copyright (C) 2019  Theo Arends
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -37,138 +37,187 @@
 #define HJL_UREF              822
 #define HJL_IREF             3300
 
-#define HLW_POWER_PROBE_TIME   10    // Number of seconds to probe for power before deciding none used
+#define HLW_POWER_PROBE_TIME   10    // Number of seconds to probe for power before deciding none used (low power pulse can take up to 10 seconds)
+#define HLW_SAMPLE_COUNT       10    // Max number of samples per cycle
 
-byte hlw_select_ui_flag;
-byte hlw_ui_flag = 1;
-byte hlw_model_type = 0;
-byte hlw_load_off;
-byte hlw_cf1_timer;
-unsigned long hlw_cf_pulse_length;
-unsigned long hlw_cf_pulse_last_time;
-unsigned long hlw_cf1_pulse_length;
-unsigned long hlw_cf1_pulse_last_time;
-unsigned long hlw_cf1_summed_pulse_length;
-unsigned long hlw_cf1_pulse_counter;
-unsigned long hlw_cf1_voltage_pulse_length;
-unsigned long hlw_cf1_current_pulse_length;
-unsigned long hlw_energy_period_counter;
+//#define HLW_DEBUG
 
-unsigned long hlw_power_ratio = 0;
-unsigned long hlw_voltage_ratio = 0;
-unsigned long hlw_current_ratio = 0;
+struct HLW {
+#ifdef HLW_DEBUG
+  unsigned long debug[HLW_SAMPLE_COUNT];
+#endif
+  unsigned long cf_pulse_length = 0;
+  unsigned long cf_pulse_last_time = 0;
+  unsigned long cf_power_pulse_length  = 0;
 
-unsigned long hlw_cf1_voltage_max_pulse_counter;
-unsigned long hlw_cf1_current_max_pulse_counter;
+  unsigned long cf1_pulse_length = 0;
+  unsigned long cf1_pulse_last_time = 0;
+  unsigned long cf1_summed_pulse_length = 0;
+  unsigned long cf1_pulse_counter = 0;
+  unsigned long cf1_voltage_pulse_length  = 0;
+  unsigned long cf1_current_pulse_length = 0;
 
+  unsigned long energy_period_counter = 0;
+
+  unsigned long power_ratio = 0;
+  unsigned long voltage_ratio = 0;
+  unsigned long current_ratio = 0;
+
+  uint8_t model_type = 0;
+  uint8_t cf1_timer = 0;
+  uint8_t power_retry = 0;
+  bool select_ui_flag = false;
+  bool ui_flag = true;
+  bool load_off = true;
+} Hlw;
+
+// Fix core 2.5.x ISR not in IRAM Exception
 #ifndef USE_WS2812_DMA  // Collides with Neopixelbus but solves exception
-void HlwCfInterrupt() ICACHE_RAM_ATTR;
-void HlwCf1Interrupt() ICACHE_RAM_ATTR;
+void HlwCfInterrupt(void) ICACHE_RAM_ATTR;
+void HlwCf1Interrupt(void) ICACHE_RAM_ATTR;
 #endif  // USE_WS2812_DMA
 
-void HlwCfInterrupt()  // Service Power
+void HlwCfInterrupt(void)  // Service Power
 {
   unsigned long us = micros();
 
-  if (hlw_load_off) {  // Restart plen measurement
-    hlw_cf_pulse_last_time = us;
-    hlw_load_off = 0;
+  if (Hlw.load_off) {  // Restart plen measurement
+    Hlw.cf_pulse_last_time = us;
+    Hlw.load_off = false;
   } else {
-    hlw_cf_pulse_length = us - hlw_cf_pulse_last_time;
-    hlw_cf_pulse_last_time = us;
-    hlw_energy_period_counter++;
+    Hlw.cf_pulse_length = us - Hlw.cf_pulse_last_time;
+    Hlw.cf_pulse_last_time = us;
+    Hlw.energy_period_counter++;
   }
+  Energy.data_valid[0] = 0;
 }
 
-void HlwCf1Interrupt()  // Service Voltage and Current
+void HlwCf1Interrupt(void)  // Service Voltage and Current
 {
   unsigned long us = micros();
 
-  hlw_cf1_pulse_length = us - hlw_cf1_pulse_last_time;
-  hlw_cf1_pulse_last_time = us;
-  if ((hlw_cf1_timer > 2) && (hlw_cf1_timer < 8)) {  // Allow for 300 mSec set-up time and measure for up to 1 second
-    hlw_cf1_summed_pulse_length += hlw_cf1_pulse_length;
-    hlw_cf1_pulse_counter++;
-    if (10 == hlw_cf1_pulse_counter) {
-      hlw_cf1_timer = 8;  // We need up to ten samples within 1 second (low current could take up to 0.3 second)
+  Hlw.cf1_pulse_length = us - Hlw.cf1_pulse_last_time;
+  Hlw.cf1_pulse_last_time = us;
+  if ((Hlw.cf1_timer > 2) && (Hlw.cf1_timer < 8)) {  // Allow for 300 mSec set-up time and measure for up to 1 second
+    Hlw.cf1_summed_pulse_length += Hlw.cf1_pulse_length;
+#ifdef HLW_DEBUG
+    Hlw.debug[Hlw.cf1_pulse_counter] = Hlw.cf1_pulse_length;
+#endif
+    Hlw.cf1_pulse_counter++;
+    if (HLW_SAMPLE_COUNT == Hlw.cf1_pulse_counter) {
+      Hlw.cf1_timer = 8;  // We need up to HLW_SAMPLE_COUNT samples within 1 second (low current could take up to 0.3 second)
     }
   }
+  Energy.data_valid[0] = 0;
 }
 
 /********************************************************************************************/
 
-void HlwEvery200ms()
+void HlwEvery200ms(void)
 {
+  unsigned long cf1_pulse_length = 0;
   unsigned long hlw_w = 0;
   unsigned long hlw_u = 0;
   unsigned long hlw_i = 0;
 
-  if (micros() - hlw_cf_pulse_last_time > (HLW_POWER_PROBE_TIME * 1000000)) {
-    hlw_cf_pulse_length = 0;    // No load for some time
-    hlw_load_off = 1;
+  if (micros() - Hlw.cf_pulse_last_time > (HLW_POWER_PROBE_TIME * 1000000)) {
+    Hlw.cf_pulse_length = 0;    // No load for some time
+    Hlw.load_off = true;
   }
+  Hlw.cf_power_pulse_length  = Hlw.cf_pulse_length;
 
-  if (hlw_cf_pulse_length && energy_power_on && !hlw_load_off) {
-    hlw_w = (hlw_power_ratio * Settings.energy_power_calibration) / hlw_cf_pulse_length;
-    energy_active_power = (float)hlw_w / 10;
+  if (Hlw.cf_power_pulse_length  && Energy.power_on && !Hlw.load_off) {
+    hlw_w = (Hlw.power_ratio * Settings.energy_power_calibration) / Hlw.cf_power_pulse_length ;  // W *10
+    Energy.active_power[0] = (float)hlw_w / 10;
+    Hlw.power_retry = 1;        // Workaround issue #5161
   } else {
-    energy_active_power = 0;
+    if (Hlw.power_retry) {
+      Hlw.power_retry--;
+    } else {
+      Energy.active_power[0] = 0;
+    }
   }
 
-  hlw_cf1_timer++;
-  if (hlw_cf1_timer >= 8) {
-    hlw_cf1_timer = 0;
-    hlw_select_ui_flag = (hlw_select_ui_flag) ? 0 : 1;
-    digitalWrite(pin[GPIO_NRG_SEL], hlw_select_ui_flag);
-
-    if (hlw_cf1_pulse_counter) {
-      hlw_cf1_pulse_length = hlw_cf1_summed_pulse_length / hlw_cf1_pulse_counter;
-    } else {
-      hlw_cf1_pulse_length = 0;
-    }
-    if (hlw_select_ui_flag == hlw_ui_flag) {
-      hlw_cf1_voltage_pulse_length = hlw_cf1_pulse_length;
-      hlw_cf1_voltage_max_pulse_counter = hlw_cf1_pulse_counter;
-
-      if (hlw_cf1_voltage_pulse_length && energy_power_on) {     // If powered on always provide voltage
-        hlw_u = (hlw_voltage_ratio * Settings.energy_voltage_calibration) / hlw_cf1_voltage_pulse_length;
-        energy_voltage = (float)hlw_u / 10;
-      } else {
-        energy_voltage = 0;
+  if (pin[GPIO_NRG_CF1] < 99) {
+    Hlw.cf1_timer++;
+    if (Hlw.cf1_timer >= 8) {
+      Hlw.cf1_timer = 0;
+      Hlw.select_ui_flag = (Hlw.select_ui_flag) ? false : true;
+      if (pin[GPIO_NRG_SEL] < 99) {
+        digitalWrite(pin[GPIO_NRG_SEL], Hlw.select_ui_flag);
       }
 
-    } else {
-      hlw_cf1_current_pulse_length = hlw_cf1_pulse_length;
-      hlw_cf1_current_max_pulse_counter = hlw_cf1_pulse_counter;
-
-      if (hlw_cf1_current_pulse_length && energy_active_power) {   // No current if no power being consumed
-        hlw_i = (hlw_current_ratio * Settings.energy_current_calibration) / hlw_cf1_current_pulse_length;
-        energy_current = (float)hlw_i / 1000;
-      } else {
-        energy_current = 0;
+      if (Hlw.cf1_pulse_counter) {
+        cf1_pulse_length = Hlw.cf1_summed_pulse_length / Hlw.cf1_pulse_counter;
       }
 
+#ifdef HLW_DEBUG
+      // Debugging for calculating mean and median
+      char stemp[100];
+      stemp[0] = '\0';
+      for (uint32_t i = 0; i < Hlw.cf1_pulse_counter; i++) {
+        snprintf_P(stemp, sizeof(stemp), PSTR("%s %d"), stemp, Hlw.debug[i]);
+      }
+      for (uint32_t i = 0; i < Hlw.cf1_pulse_counter; i++) {
+        for (uint32_t j = i + 1; j < Hlw.cf1_pulse_counter; j++) {
+          if (Hlw.debug[i] > Hlw.debug[j]) {  // Sort ascending
+            std::swap(Hlw.debug[i], Hlw.debug[j]);
+          }
+        }
+      }
+      unsigned long median = Hlw.debug[(Hlw.cf1_pulse_counter +1) / 2];
+      AddLog_P2(LOG_LEVEL_DEBUG, PSTR("NRG: power %d, ui %d, cnt %d, smpl%s, sum %d, mean %d, median %d"),
+        Hlw.cf_power_pulse_length , Hlw.select_ui_flag, Hlw.cf1_pulse_counter, stemp, Hlw.cf1_summed_pulse_length, cf1_pulse_length, median);
+#endif
+
+      if (Hlw.select_ui_flag == Hlw.ui_flag) {
+        Hlw.cf1_voltage_pulse_length  = cf1_pulse_length;
+
+        if (Hlw.cf1_voltage_pulse_length  && Energy.power_on) {     // If powered on always provide voltage
+          hlw_u = (Hlw.voltage_ratio * Settings.energy_voltage_calibration) / Hlw.cf1_voltage_pulse_length ;  // V *10
+          Energy.voltage[0] = (float)hlw_u / 10;
+        } else {
+          Energy.voltage[0] = 0;
+        }
+
+      } else {
+        Hlw.cf1_current_pulse_length = cf1_pulse_length;
+
+        if (Hlw.cf1_current_pulse_length && Energy.active_power[0]) {   // No current if no power being consumed
+          hlw_i = (Hlw.current_ratio * Settings.energy_current_calibration) / Hlw.cf1_current_pulse_length;  // mA
+          Energy.current[0] = (float)hlw_i / 1000;
+        } else {
+          Energy.current[0] = 0;
+        }
+
+      }
+      Hlw.cf1_summed_pulse_length = 0;
+      Hlw.cf1_pulse_counter = 0;
     }
-    hlw_cf1_summed_pulse_length = 0;
-    hlw_cf1_pulse_counter = 0;
   }
 }
 
-void HlwEverySecond()
+void HlwEverySecond(void)
 {
-  unsigned long hlw_len;
+  if (Energy.data_valid[0] > ENERGY_WATCHDOG) {
+    Hlw.cf1_voltage_pulse_length  = 0;
+    Hlw.cf1_current_pulse_length = 0;
+    Hlw.cf_power_pulse_length  = 0;
+  } else {
+    unsigned long hlw_len;
 
-  if (hlw_energy_period_counter) {
-    hlw_len = 10000 / hlw_energy_period_counter;
-    hlw_energy_period_counter = 0;
-    if (hlw_len) {
-      energy_kWhtoday_delta += ((hlw_power_ratio * Settings.energy_power_calibration) / hlw_len) / 36;
-      EnergyUpdateToday();
+    if (Hlw.energy_period_counter) {
+      hlw_len = 10000 / Hlw.energy_period_counter;
+      Hlw.energy_period_counter = 0;
+      if (hlw_len) {
+        Energy.kWhtoday_delta += ((Hlw.power_ratio * Settings.energy_power_calibration) / hlw_len) / 36;
+        EnergyUpdateToday();
+      }
     }
   }
 }
 
-void HlwSnsInit()
+void HlwSnsInit(void)
 {
   if (!Settings.energy_power_calibration || (4975 == Settings.energy_power_calibration)) {
     Settings.energy_power_calibration = HLW_PREF_PULSE;
@@ -176,80 +225,79 @@ void HlwSnsInit()
     Settings.energy_current_calibration = HLW_IREF_PULSE;
   }
 
-  if (hlw_model_type) {
-    hlw_power_ratio = HJL_PREF;
-    hlw_voltage_ratio = HJL_UREF;
-    hlw_current_ratio = HJL_IREF;
+  if (Hlw.model_type) {
+    Hlw.power_ratio = HJL_PREF;
+    Hlw.voltage_ratio = HJL_UREF;
+    Hlw.current_ratio = HJL_IREF;
   } else {
-    hlw_power_ratio = HLW_PREF;
-    hlw_voltage_ratio = HLW_UREF;
-    hlw_current_ratio = HLW_IREF;
+    Hlw.power_ratio = HLW_PREF;
+    Hlw.voltage_ratio = HLW_UREF;
+    Hlw.current_ratio = HLW_IREF;
   }
 
-  hlw_cf_pulse_length = 0;
-  hlw_cf_pulse_last_time = 0;
-  hlw_cf1_pulse_length = 0;
-  hlw_cf1_pulse_last_time = 0;
-  hlw_cf1_voltage_pulse_length = 0;
-  hlw_cf1_current_pulse_length = 0;
-  hlw_cf1_voltage_max_pulse_counter = 0;
-  hlw_cf1_current_max_pulse_counter = 0;
-
-  hlw_load_off = 1;
-  hlw_energy_period_counter = 0;
-
-  hlw_select_ui_flag = 0;  // Voltage;
-
-  pinMode(pin[GPIO_NRG_SEL], OUTPUT);
-  digitalWrite(pin[GPIO_NRG_SEL], hlw_select_ui_flag);
-  pinMode(pin[GPIO_NRG_CF1], INPUT_PULLUP);
-  attachInterrupt(pin[GPIO_NRG_CF1], HlwCf1Interrupt, FALLING);
+  if (pin[GPIO_NRG_SEL] < 99) {
+    pinMode(pin[GPIO_NRG_SEL], OUTPUT);
+    digitalWrite(pin[GPIO_NRG_SEL], Hlw.select_ui_flag);
+  }
+  if (pin[GPIO_NRG_CF1] < 99) {
+    pinMode(pin[GPIO_NRG_CF1], INPUT_PULLUP);
+    attachInterrupt(pin[GPIO_NRG_CF1], HlwCf1Interrupt, FALLING);
+  }
   pinMode(pin[GPIO_HLW_CF], INPUT_PULLUP);
   attachInterrupt(pin[GPIO_HLW_CF], HlwCfInterrupt, FALLING);
-
-  hlw_cf1_timer = 0;
 }
 
-void HlwDrvInit()
+void HlwDrvInit(void)
 {
-  if (!energy_flg) {
-    hlw_model_type = 0;
-    if (pin[GPIO_HJL_CF] < 99) {
-      pin[GPIO_HLW_CF] = pin[GPIO_HJL_CF];
-      pin[GPIO_HJL_CF] = 99;
-      hlw_model_type = 1;
-    }
+  Hlw.model_type = 0;                      // HLW8012
+  if (pin[GPIO_HJL_CF] < 99) {
+    pin[GPIO_HLW_CF] = pin[GPIO_HJL_CF];
+    pin[GPIO_HJL_CF] = 99;
+    Hlw.model_type = 1;                    // HJL-01/BL0937
+  }
 
-    hlw_ui_flag = 1;
+  if (pin[GPIO_HLW_CF] < 99) {             // HLW8012 or HJL-01 based device Power monitor
+
+    Hlw.ui_flag = true;                    // Voltage on high
     if (pin[GPIO_NRG_SEL_INV] < 99) {
       pin[GPIO_NRG_SEL] = pin[GPIO_NRG_SEL_INV];
       pin[GPIO_NRG_SEL_INV] = 99;
-      hlw_ui_flag = 0;
+      Hlw.ui_flag = false;                 // Voltage on low
     }
 
-    if ((pin[GPIO_NRG_SEL] < 99) && (pin[GPIO_NRG_CF1] < 99) && (pin[GPIO_HLW_CF] < 99)) {  // HLW8012 or HJL-01 based device
-      energy_flg = XNRG_01;
+    if (pin[GPIO_NRG_CF1] < 99) {          // Voltage and/or Current monitor
+      if (99 == pin[GPIO_NRG_SEL]) {       // Voltage and/or Current selector
+        Energy.current_available = false;  // Assume Voltage
+      }
+    } else {
+      Energy.current_available = false;
+      Energy.voltage_available = false;
     }
+
+    energy_flg = XNRG_01;
   }
 }
 
-boolean HlwCommand()
+bool HlwCommand(void)
 {
-  boolean serviced = true;
+  bool serviced = true;
 
-  if (CMND_POWERSET == energy_command_code) {
-    if (XdrvMailbox.data_len && hlw_cf_pulse_length) {
-      Settings.energy_power_calibration = ((unsigned long)(CharToDouble(XdrvMailbox.data) * 10) * hlw_cf_pulse_length) / hlw_power_ratio;
+  if ((CMND_POWERCAL == Energy.command_code) || (CMND_VOLTAGECAL == Energy.command_code) || (CMND_CURRENTCAL == Energy.command_code)) {
+    // Service in xdrv_03_energy.ino
+  }
+  else if (CMND_POWERSET == Energy.command_code) {
+    if (XdrvMailbox.data_len && Hlw.cf_power_pulse_length ) {
+      Settings.energy_power_calibration = ((unsigned long)(CharToFloat(XdrvMailbox.data) * 10) * Hlw.cf_power_pulse_length ) / Hlw.power_ratio;
     }
   }
-  else if (CMND_VOLTAGESET == energy_command_code) {
-    if (XdrvMailbox.data_len && hlw_cf1_voltage_pulse_length) {
-      Settings.energy_voltage_calibration = ((unsigned long)(CharToDouble(XdrvMailbox.data) * 10) * hlw_cf1_voltage_pulse_length) / hlw_voltage_ratio;
+  else if (CMND_VOLTAGESET == Energy.command_code) {
+    if (XdrvMailbox.data_len && Hlw.cf1_voltage_pulse_length ) {
+      Settings.energy_voltage_calibration = ((unsigned long)(CharToFloat(XdrvMailbox.data) * 10) * Hlw.cf1_voltage_pulse_length ) / Hlw.voltage_ratio;
     }
   }
-  else if (CMND_CURRENTSET == energy_command_code) {
-    if (XdrvMailbox.data_len && hlw_cf1_current_pulse_length) {
-      Settings.energy_current_calibration = ((unsigned long)(CharToDouble(XdrvMailbox.data)) * hlw_cf1_current_pulse_length) / hlw_current_ratio;
+  else if (CMND_CURRENTSET == Energy.command_code) {
+    if (XdrvMailbox.data_len && Hlw.cf1_current_pulse_length) {
+      Settings.energy_current_calibration = ((unsigned long)(CharToFloat(XdrvMailbox.data)) * Hlw.cf1_current_pulse_length) / Hlw.current_ratio;
     }
   }
   else serviced = false;  // Unknown command
@@ -261,28 +309,26 @@ boolean HlwCommand()
  * Interface
 \*********************************************************************************************/
 
-int Xnrg01(byte function)
+bool Xnrg01(uint8_t function)
 {
-  int result = 0;
+  bool result = false;
 
-  if (FUNC_PRE_INIT == function) {
-    HlwDrvInit();
-  }
-  else if (XNRG_01 == energy_flg) {
-    switch (function) {
-      case FUNC_INIT:
-        HlwSnsInit();
-        break;
-      case FUNC_EVERY_SECOND:
-        HlwEverySecond();
-        break;
-      case FUNC_EVERY_200_MSECOND:
-        HlwEvery200ms();
-        break;
-      case FUNC_COMMAND:
-        result = HlwCommand();
-        break;
-    }
+  switch (function) {
+    case FUNC_EVERY_200_MSECOND:
+      HlwEvery200ms();
+      break;
+    case FUNC_ENERGY_EVERY_SECOND:
+      HlwEverySecond();
+      break;
+    case FUNC_COMMAND:
+      result = HlwCommand();
+      break;
+    case FUNC_INIT:
+      HlwSnsInit();
+      break;
+    case FUNC_PRE_INIT:
+      HlwDrvInit();
+      break;
   }
   return result;
 }
