@@ -113,8 +113,8 @@
                                                  // If not using the sensor then you can supply process values via MQTT using
                                                  // cmnd pid_pv
 
-   #define PID_SHUTTER                   1       // if using the PID to control a 3-way valve, create Tasmota Shutter and define the 
-                                                 // number of the shutter here. Otherwise do not define this at all
+   //#define PID_SHUTTER                   1     // if using the PID to control a 3-way valve, create Tasmota Shutter and define the 
+                                                 // number of the shutter here. Otherwise leave this commented out
 
  * Help with using the PID algorithm and with loop tuning can be found at
  * http://blog.clanlaw.org.uk/2018/01/09/PID-tuning-with-node-red-contrib-pid.html
